@@ -16,6 +16,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -24,6 +25,7 @@ import java.util.List;
 import java.util.Locale;
 
 @Service
+@Transactional(readOnly = true)
 @RequiredArgsConstructor
 public class PdfService {
 
@@ -96,10 +98,10 @@ public class PdfService {
             addTableHeader(btTable, new String[]{"Mode", "Ref Number", "Date", "Net Paid (₹)"});
             for (PayoutPayment bt : bankTransfers) {
                 addTableRow(btTable,
-                    bt.getModeOfPay().name().toUpperCase(),
-                    bt.getRefNumber(),
-                    String.valueOf(bt.getRefDate()),
-                    fmt(bt.getNetPaid())
+                        bt.getModeOfPay().name().toUpperCase(),
+                        bt.getRefNumber(),
+                        String.valueOf(bt.getRefDate()),
+                        fmt(bt.getNetPaid())
                 );
             }
             doc.add(btTable);
@@ -127,8 +129,8 @@ public class PdfService {
 
         Plot plot = customer.getPlot();
         String filename = "BookingReceipt_" +
-            customer.getName().replace(" ", "_") +
-            (plot != null ? "_Plot" + plot.getPlotNumber() : "") + ".pdf";
+                customer.getName().replace(" ", "_") +
+                (plot != null ? "_Plot" + plot.getPlotNumber() : "") + ".pdf";
 
         setupPdfResponse(response, filename);
         PdfDocument pdf = new PdfDocument(new PdfWriter(response.getOutputStream()));
@@ -159,11 +161,11 @@ public class PdfService {
             int i = 1;
             for (CustomerPayment p : payments) {
                 addTableRow(pt,
-                    String.valueOf(i++),
-                    String.valueOf(p.getDepositDate()),
-                    p.getPaymentMode().name(),
-                    p.getRefChqNumber() != null ? p.getRefChqNumber() : "-",
-                    fmt(p.getAmount())
+                        String.valueOf(i++),
+                        String.valueOf(p.getDepositDate()),
+                        p.getPaymentMode().name(),
+                        p.getRefChqNumber() != null ? p.getRefChqNumber() : "-",
+                        fmt(p.getAmount())
                 );
             }
             doc.add(pt);
@@ -178,10 +180,10 @@ public class PdfService {
 
     public void streamWelcomeLetter(Integer targetId, Associate me, HttpServletResponse response) throws IOException {
         Associate associate = associateRepo.findById(targetId)
-            .orElseThrow(() -> new RuntimeException("NOT_FOUND"));
+                .orElseThrow(() -> new RuntimeException("NOT_FOUND"));
 
         String filename = "WelcomeLetter_" + associate.getAssociateCode() + "_" +
-            associate.getName().replace(" ", "_") + ".pdf";
+                associate.getName().replace(" ", "_") + ".pdf";
         setupPdfResponse(response, filename);
 
         PdfDocument pdf = new PdfDocument(new PdfWriter(response.getOutputStream()));
@@ -195,8 +197,8 @@ public class PdfService {
         doc.add(new Paragraph("Dear " + associate.getName() + ",").setBold());
         doc.add(new Paragraph("\n"));
         doc.add(new Paragraph(
-            "We are delighted to welcome you to the " + companyName + " family! " +
-            "Your registration as a valued associate marks the beginning of a rewarding journey with us."
+                "We are delighted to welcome you to the " + companyName + " family! " +
+                        "Your registration as a valued associate marks the beginning of a rewarding journey with us."
         ));
         doc.add(new Paragraph("\n"));
 
@@ -210,13 +212,13 @@ public class PdfService {
 
         if (associate.getSponsor() != null) {
             doc.add(kvRow("Sponsored By", associate.getSponsor().getName() +
-                " (" + associate.getSponsor().getAssociateCode() + ")"));
+                    " (" + associate.getSponsor().getAssociateCode() + ")"));
         }
 
         doc.add(new Paragraph("\n"));
         doc.add(new Paragraph(
-            "We wish you great success in your endeavours. If you have any questions, " +
-            "please reach out to us at " + companyEmail + "."
+                "We wish you great success in your endeavours. If you have any questions, " +
+                        "please reach out to us at " + companyEmail + "."
         ));
         doc.add(new Paragraph("\n\n"));
         doc.add(new Paragraph("Warm regards,").setItalic());
@@ -234,13 +236,13 @@ public class PdfService {
     private String fmt(BigDecimal amount) {
         if (amount == null) return "0.00";
         return NumberFormat.getNumberInstance(new Locale("en", "IN"))
-            .format(amount.doubleValue());
+                .format(amount.doubleValue());
     }
 
     private Paragraph centeredPara(String text, int fontSize, boolean bold) {
         Paragraph p = new Paragraph(text)
-            .setFontSize(fontSize)
-            .setTextAlignment(TextAlignment.CENTER);
+                .setFontSize(fontSize)
+                .setTextAlignment(TextAlignment.CENTER);
         if (bold) p.setBold();
         return p;
     }
@@ -256,7 +258,7 @@ public class PdfService {
     private void addTableHeader(Table table, String[] headers) {
         for (String h : headers) {
             table.addHeaderCell(new Cell().add(new Paragraph(h).setBold())
-                .setBackgroundColor(ColorConstants.LIGHT_GRAY));
+                    .setBackgroundColor(ColorConstants.LIGHT_GRAY));
         }
     }
 

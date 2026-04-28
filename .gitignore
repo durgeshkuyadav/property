@@ -1,5 +1,4 @@
 node_modules/
-.env
 build/
 dist/
 .DS_Store
@@ -8,3 +7,5 @@ target/
 application-local.properties
 application-prod.properties
 .env
+
+# mvn spring-boot:run -Dspring-boot.run.profiles=local

@@ -10,6 +10,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.List;
 import java.util.Map;
@@ -21,9 +22,19 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException ex) {
         List<Map<String, String>> errors = ex.getBindingResult().getFieldErrors().stream()
-            .map(f -> Map.of("field", f.getField(), "message", defaultMsg(f)))
-            .toList();
+                .map(f -> Map.of("field", f.getField(), "message", defaultMsg(f)))
+                .toList();
         return ResponseUtil.error("Validation failed", 422, errors);
+    }
+
+    // FIX 3: Handle "undefined" string sent from frontend for Integer params
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Map<String, Object>> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        String param = ex.getName();
+        String value = ex.getValue() != null ? ex.getValue().toString() : "null";
+        log.warn("Type mismatch for param '{}' with value '{}' — treating as null", param, value);
+        // Return 400 with clear message instead of 500
+        return ResponseUtil.error("Invalid parameter '" + param + "': received '" + value + "'", 400);
     }
 
     @ExceptionHandler(AccessDeniedException.class)
@@ -41,9 +52,21 @@ public class GlobalExceptionHandler {
         return ResponseUtil.error("Invalid token", 401);
     }
 
+    @ExceptionHandler(org.hibernate.LazyInitializationException.class)
+    public ResponseEntity<Map<String, Object>> handleLazy(org.hibernate.LazyInitializationException ex) {
+        log.error("Lazy loading error: {}", ex.getMessage());
+        return ResponseUtil.error("Data loading error — please retry", 500);
+    }
+
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, Object>> handleRuntime(RuntimeException ex) {
-        return switch (ex.getMessage()) {
+        // FIX: Guard against null message to prevent NPE in switch
+        String msg = ex.getMessage();
+        if (msg == null) {
+            log.error("RuntimeException with null message", ex);
+            return ResponseUtil.error("Internal server error", 500);
+        }
+        return switch (msg) {
             case "INVALID_CREDENTIALS"     -> ResponseUtil.error("Invalid mobile number or password", 401);
             case "SUSPENDED"               -> ResponseUtil.error("Your account has been suspended. Contact admin.", 403);
             case "INACTIVE"                -> ResponseUtil.error("Your account is inactive. Contact admin.", 403);
@@ -60,8 +83,10 @@ public class GlobalExceptionHandler {
             case "FORBIDDEN"               -> ResponseUtil.error("Access denied", 403);
             case "PLOT_ALREADY_EXISTS"     -> ResponseUtil.error("Plot number already exists in this project", 409);
             case "PLOT_NOT_AVAILABLE"      -> ResponseUtil.error("Plot is not available for booking", 400);
+            case "VALIDATION"              -> ResponseUtil.error("Invalid request data", 400);
+            case "OVERLAP_PAYOUT"          -> ResponseUtil.error("A payout already exists for this period", 409);
             default -> {
-                log.error("Unhandled exception: {}", ex.getMessage(), ex);
+                log.error("Unhandled exception: {}", msg, ex);
                 yield ResponseUtil.error("Internal server error", 500);
             }
         };
